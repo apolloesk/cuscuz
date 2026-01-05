@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RPG Completo</title>
+    <style>
+        body { margin:0; overflow:hidden; font-family:sans-serif; }
+        #gameCanvas { display:block; margin:auto; background:#77b255; border:3px solid #333; }
+        #info { position:absolute; top:10px; left:10px; color:white; font-weight:bold; background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:5px; }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="500" tabindex="0"></canvas>
+<div id="info">HP:100 | Level:1 | XP:0 | Moedas:0</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+canvas.focus();
+const ctx = canvas.getContext('2d');
+
+const player = { x:400, y:250, w:40, h:40, color:'red', hp:100, speed:5, level:1, xp:0, xpToNext:10, attack:20 };
+const camera = {x:0, y:0};
+const keys = {};
+const coins = [{x:150,y:150,w:20,h:20,color:'yellow',xp:2},{x:450,y:100,w:20,h:20,color:'yellow',xp:2}];
+const obstacles = [{x:200,y:100,w:100,h:20},{x:100,y:500,w:20,h:100},{x:400,y:300,w:150,h:20}];
+const enemies = [
+    {x:500,y:200,w:30,h:30,color:'purple',hp:30,xp:5,dirX:1,dirY:1},
+    {x:600,y:400,w:30,h:30,color:'purple',hp:40,xp:8,dirX:-1,dirY:1}
+];
+let score=0;
+
+// --- Teclado ---
+canvas.addEventListener('keydown', (e)=>{
+    keys[e.key]=true;
+    if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
+});
+canvas.addEventListener('keyup', (e)=>{ keys[e.key]=false; });
+
+// --- Colisão ---
+function isColliding(a,b){ return a.x<a.x+b.w && a.x+a.w>b.x && a.y<a.y+b.h && a.y+a.h>b.y; }
+
+// --- Ganhar XP e subir de level ---
+function gainXP(amount){
+    player.xp+=amount;
+    while(player.xp>=player.xpToNext){
+        player.xp-=player.xpToNext;
+        player.level+=1;
+        player.xpToNext=Math.floor(player.xpToNext*1.5);
+        player.hp=100;
+    }
+}
+
+// --- Atualizar ---
+function update(){
+    // --- Movimento jogador ---
+    let nx=player.x, ny=player.y;
+    if(keys['ArrowUp']) ny-=player.speed;
+    if(keys['ArrowDown']) ny+=player.speed;
+    if(keys['ArrowLeft']) nx-=player.speed;
+    if(keys['ArrowRight']) nx+=player.speed;
+
+    const tempPlayer = {...player, x:nx, y:ny};
+    let canMove=true;
+    for(const obs of obstacles) if(isColliding(tempPlayer, obs)) canMove=false;
+    if(canMove){ player.x=nx; player.y=ny; }
+
+    // --- Coletar moedas ---
+    for(let i=coins.length-1;i>=0;i--){
+        if(isColliding(player, coins[i])){ gainXP(coins[i].xp); coins.splice(i,1); score++; }
+    }
+
+    // --- Atacar inimigos ---
+    if(keys[' ']){
+        for(const e of enemies){
+            if(e.hp>0 && Math.abs(player.x-e.x)<50 && Math.abs(player.y-e.y)<50){
+                e.hp-=player.attack;
+                if(e.hp<=0) gainXP(e.xp);
+            }
+        }
+    }
+
+    // --- Inimigos se movendo ---
+    for(const e of enemies){
+        if(e.hp<=0) continue;
+        e.x+=e.dirX*2;
+        e.y+=e.dirY*2;
+        // trocar direção se colidir com obstáculos ou borda
+        for(const obs of obstacles){
+            if(isColliding(e, obs)) { e.dirX*=-1; e.dirY*=-1; }
+        }
+        if(e.x<0 || e.x>1600) e.dirX*=-1;
+        if(e.y<0 || e.y>1000) e.dirY*=-1;
+        // dano ao jogador
+        if(isColliding(player,e)) player.hp-=0.2;
+    }
+
+    // --- Atualizar HUD ---
+    document.getElementById('info').innerText=
+        `HP:${Math.floor(player.hp)} | Level:${player.level} | XP:${Math.floor(player.xp)}/${player.xpToNext} | Moedas:${score}`;
+
+    // --- Game Over ---
+    if(player.hp<=0){ alert("Game Over!"); window.location.reload(); }
+
+    // --- Atualizar câmera ---
+    camera.x=player.x-canvas.width/2+player.w/2;
+    camera.y=player.y-canvas.height/2+player.h/2;
+}
+
+// --- Desenhar ---
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // Jogador
+    ctx.fillStyle=player.color; ctx.fillRect(player.x-camera.x, player.y-camera.y, player.w, player.h);
+    // Obstáculos
+    ctx.fillStyle='brown'; for(const o of obstacles) ctx.fillRect(o.x-camera.x,o.y-camera.y,o.w,o.h);
+    // Moedas
+    for(const c of coins){ ctx.fillStyle=c.color; ctx.fillRect(c.x-camera.x,c.y-camera.y,c.w,c.h); }
+    // Inimigos
+    for(const e of enemies){ if(e.hp>0){ ctx.fillStyle=e.color; ctx.fillRect(e.x-camera.x,e.y-camera.y,e.w,e.h); } }
+}
+
+// --- Loop ---
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
+canvas.addEventListener('keydown', (e)=>{
+    keys[e.key] = true;
+    if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
+});
+canvas.addEventListener('keyup', (e)=>{ keys[e.key] = false; });
+let nx = player.x;
+let ny = player.y;
+
+if(keys['ArrowUp']) ny -= player.speed;
+if(keys['ArrowDown']) ny += player.speed;
+if(keys['ArrowLeft']) nx -= player.speed;
+if(keys['ArrowRight']) nx += player.speed;
+
+// Checar colisão com obstáculos
+const tempPlayer = {...player, x:nx, y:ny};
+let canMove = true;
+for(const obs of obstacles) if(isColliding(tempPlayer, obs)) canMove=false;
+if(canMove){
+    player.x = nx;
+    player.y = ny;
+}
+canvas.setAttribute('tabindex','0');
+canvas.focus();
+ctx.fillStyle = player.color;
+ctx.fillRect(player.x - camera.x, player.y - camera.y, player.w, player.h);
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Movimentação com Câmera</title>
+    <style>
+        body { margin:0; overflow:hidden; }
+        #gameCanvas { display:block; margin:auto; background:#77b255; border:3px solid #333; }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="500" tabindex="0"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+canvas.setAttribute('tabindex','0');
+canvas.focus();
+const ctx = canvas.getContext('2d');
+
+const keys = {};
+
+// Teclado
+canvas.addEventListener('keydown', e => { keys[e.key] = true; if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) e.preventDefault(); });
+canvas.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// Jogador
+const player = { x:400, y:250, w:40, h:40, color:'red', speed:5 };
+
+// Obstáculos (só pra exemplo)
+const obstacles = [
+    {x:300, y:200, w:100, h:20},
+    {x:600, y:400, w:150, h:30}
+];
+
+// Câmera
+const camera = { x:0, y:0 };
+
+// Colisão
+function isColliding(a,b){ return a.x<a.x+b.w && a.x+a.w>b.x && a.y<a.y+b.h && a.y+a.h>b.y; }
+
+// Atualizar jogador e câmera
+function update(){
+    let nx = player.x;
+    let ny = player.y;
+    if(keys['ArrowUp']) ny -= player.speed;
+    if(keys['ArrowDown']) ny += player.speed;
+    if(keys['ArrowLeft']) nx -= player.speed;
+    if(keys['ArrowRight']) nx += player.speed;
+
+    // Checar colisão
+    const tempPlayer = {...player, x:nx, y:ny};
+    let canMove = true;
+    for(const obs of obstacles) if(isColliding(tempPlayer, obs)) canMove=false;
+    if(canMove){ player.x=nx; player.y=ny; }
+
+    // Câmera segue jogador
+    camera.x = player.x - canvas.width/2 + player.w/2;
+    camera.y = player.y - canvas.height/2 + player.h/2;
+}
+
+// Desenhar
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Obstáculos
+    ctx.fillStyle='brown';
+    for(const o of obstacles) ctx.fillRect(o.x - camera.x, o.y - camera.y, o.w, o.h);
+
+    // Jogador
+    ctx.fillStyle=player.color;
+    ctx.fillRect(player.x - camera.x, player.y - camera.y, player.w, player.h);
+}
+
+// Loop
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RPG com Sons</title>
+    <style>
+        body { margin:0; overflow:hidden; }
+        #gameCanvas { display:block; margin:auto; background:#77b255; border:3px solid #333; }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="500" tabindex="0"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+canvas.setAttribute('tabindex','0');
+canvas.focus();
+const ctx = canvas.getContext('2d');
+
+// --- Teclado ---
+const keys = {};
+canvas.addEventListener('keydown', e => { keys[e.key] = true; if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) e.preventDefault(); });
+canvas.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// --- Sons embutidos ---
+const levelUpSound = new Audio('https://freesound.org/data/previews/337/337049_5237746-lq.mp3'); // level up
+const ambientSound = new Audio('https://freesound.org/data/previews/341/341695_3248242-lq.mp3'); // ambientação
+ambientSound.loop = true;
+ambientSound.volume = 0.2;
+ambientSound.play().catch(()=>{}); // autoplay depende do navegador
+
+// --- Jogador ---
+const player = { x:400, y:250, w:40, h:40, color:'red', speed:5, level:1, xp:0, xpToNext:5 };
+
+// --- Obstáculos ---
+const obstacles = [
+    {x:300, y:200, w:100, h:20},
+    {x:600, y:400, w:150, h:30}
+];
+
+// --- Câmera ---
+const camera = { x:0, y:0 };
+
+// --- Colisão ---
+function isColliding(a,b){ return a.x<a.x+b.w && a.x+a.w>b.x && a.y<a.y+b.h && a.y+a.h>b.y; }
+
+// --- Atualizar ---
+function update(){
+    let nx = player.x;
+    let ny = player.y;
+    if(keys['ArrowUp']) ny -= player.speed;
+    if(keys['ArrowDown']) ny += player.speed;
+    if(keys['ArrowLeft']) nx -= player.speed;
+    if(keys['ArrowRight']) nx += player.speed;
+
+    const tempPlayer = {...player, x:nx, y:ny};
+    let canMove = true;
+    for(const obs of obstacles) if(isColliding(tempPlayer, obs)) canMove=false;
+    if(canMove){ player.x=nx; player.y=ny; }
+
+    // Simula XP subindo para testar Level Up
+    player.xp += 0.01;
+    if(player.xp >= player.xpToNext){
+        player.level +=1;
+        player.xp = 0;
+        levelUpSound.play(); // toca som de level up
+    }
+
+    // Atualiza câmera
+    camera.x = player.x - canvas.width/2 + player.w/2;
+    camera.y = player.y - canvas.height/2 + player.h/2;
+}
+
+// --- Desenhar ---
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Obstáculos
+    ctx.fillStyle='brown';
+    for(const o of obstacles) ctx.fillRect(o.x-camera.x,o.y-camera.y,o.w,o.h);
+
+    // Jogador
+    ctx.fillStyle=player.color;
+    ctx.fillRect(player.x-camera.x,player.y-camera.y,player.w,player.h);
+
+    // HUD
+    ctx.fillStyle='white';
+    ctx.font='20px Arial';
+    ctx.fillText(`Level: ${player.level}`, 10,30);
+}
+
+// --- Loop ---
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Movimento com Câmera</title>
+    <style>
+        body { margin:0; overflow:hidden; }
+        #gameCanvas { display:block; margin:auto; background:#77b255; border:3px solid #333; }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="500" tabindex="0"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+canvas.setAttribute('tabindex','0');
+canvas.focus(); // foco inicial
+const ctx = canvas.getContext('2d');
+
+const keys = {};
+
+// Teclado
+canvas.addEventListener('keydown', e => { keys[e.key] = true; });
+canvas.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// Jogador
+const player = { x:400, y:250, w:40, h:40, color:'red', speed:5 };
+
+// Obstáculos (exemplo)
+const obstacles = [
+    {x:300, y:200, w:100, h:20},
+    {x:600, y:400, w:150, h:30}
+];
+
+// Câmera
+const camera = { x:0, y:0 };
+
+// Colisão simples
+function isColliding(a,b){ return a.x<a.x+b.w && a.x+a.w>b.x && a.y<a.y+b.h && a.y+a.h>b.y; }
+
+// Atualizar jogador e câmera
+function update(){
+    let nx = player.x;
+    let ny = player.y;
+
+    if(keys['ArrowUp']) ny -= player.speed;
+    if(keys['ArrowDown']) ny += player.speed;
+    if(keys['ArrowLeft']) nx -= player.speed;
+    if(keys['ArrowRight']) nx += player.speed;
+
+    // Checar colisão
+    const temp = {...player, x:nx, y:ny};
+    let canMove = true;
+    for(const obs of obstacles) if(isColliding(temp, obs)) canMove=false;
+
+    if(canMove){ player.x = nx; player.y = ny; }
+
+    // Câmera segue jogador
+    camera.x = player.x - canvas.width/2 + player.w/2;
+    camera.y = player.y - canvas.height/2 + player.h/2;
+}
+
+// Desenhar
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Obstáculos
+    ctx.fillStyle='brown';
+    for(const o of obstacles) ctx.fillRect(o.x - camera.x, o.y - camera.y, o.w, o.h);
+
+    // Jogador
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x - camera.x, player.y - camera.y, player.w, player.h);
+}
+
+// Loop
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Movimento com Sons</title>
+    <style>
+        body { margin:0; overflow:hidden; }
+        #gameCanvas { display:block; margin:auto; background:#77b255; border:3px solid #333; }
+        #info { position:absolute; top:10px; left:10px; color:white; font-weight:bold; background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:5px; }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="500" tabindex="0"></canvas>
+<div id="info">Level: 1 | XP: 0/5</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+canvas.setAttribute('tabindex','0');
+canvas.focus();
+const ctx = canvas.getContext('2d');
+
+const keys = {};
+canvas.addEventListener('keydown', e => { keys[e.key] = true; });
+canvas.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// --- Sons ---
+const levelUpSound = new Audio('https://freesound.org/data/previews/337/337049_5237746-lq.mp3'); // level up
+const ambientSound = new Audio('https://freesound.org/data/previews/341/341695_3248242-lq.mp3'); // ambientação
+ambientSound.loop = true;
+ambientSound.volume = 0.2;
+ambientSound.play().catch(()=>{}); // autoplay depende do navegador
+
+// --- Jogador ---
+const player = { x:400, y:250, w:40, h:40, color:'red', speed:5, level:1, xp:0, xpToNext:5 };
+
+// --- Obstáculos ---
+const obstacles = [
+    {x:300, y:200, w:100, h:20},
+    {x:600, y:400, w:150, h:30}
+];
+
+// --- Câmera ---
+const camera = { x:0, y:0 };
+
+// --- Colisão ---
+function isColliding(a,b){ return a.x<a.x+b.w && a.x+a.w>b.x && a.y<a.y+b.h && a.y+a.h>b.y; }
+
+// --- Atualizar ---
+function update(){
+    let nx = player.x;
+    let ny = player.y;
+    if(keys['ArrowUp']) ny -= player.speed;
+    if(keys['ArrowDown']) ny += player.speed;
+    if(keys['ArrowLeft']) nx -= player.speed;
+    if(keys['ArrowRight']) nx += player.speed;
+
+    const tempPlayer = {...player, x:nx, y:ny};
+    let canMove = true;
+    for(const obs of obstacles) if(isColliding(tempPlayer, obs)) canMove=false;
+    if(canMove){ player.x=nx; player.y=ny; }
+
+    // Simula XP subindo
+    player.xp += 0.01;
+    if(player.xp >= player.xpToNext){
+        player.level += 1;
+        player.xp = 0;
+        levelUpSound.play(); // toca som de level up
+    }
+
+    // Atualiza HUD
+    document.getElementById('info').innerText = `Level: ${player.level} | XP: ${player.xp.toFixed(2)}/${player.xpToNext}`;
+
+    // Câmera segue jogador
+    camera.x = player.x - canvas.width/2 + player.w/2;
+    camera.y = player.y - canvas.height/2 + player.h/2;
+}
+
+// --- Desenhar ---
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Obstáculos
+    ctx.fillStyle='brown';
+    for(const o of obstacles) ctx.fillRect(o.x-camera.x,o.y-camera.y,o.w,o.h);
+
+    // Jogador
+    ctx.fillStyle=player.color;
+    ctx.fillRect(player.x-camera.x,player.y-camera.y,player.w,player.h);
+}
+
+// --- Loop ---
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Movimento com Sons</title>
+    <style>
+        body { margin:0; overflow:hidden; }
+        #gameCanvas { display:block; margin:auto; background:#77b255; border:3px solid #333; }
+        #info { position:absolute; top:10px; left:10px; color:white; font-weight:bold; background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:5px; }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="800" height="500" tabindex="0"></canvas>
+<div id="info">Level: 1 | XP: 0/5</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+canvas.setAttribute('tabindex','0');
+canvas.focus();
+const ctx = canvas.getContext('2d');
+
+const keys = {};
+canvas.addEventListener('keydown', e => { keys[e.key] = true; });
+canvas.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// --- Sons ---
+const levelUpSound = new Audio('https://freesound.org/data/previews/337/337049_5237746-lq.mp3'); // level up
+const ambientSound = new Audio('https://freesound.org/data/previews/341/341695_3248242-lq.mp3'); // ambientação
+ambientSound.loop = true;
+ambientSound.volume = 0.2;
+ambientSound.play().catch(()=>{}); // autoplay depende do navegador
+
+// --- Jogador ---
+const player = { x:400, y:250, w:40, h:40, color:'red', speed:5, level:1, xp:0, xpToNext:5 };
+
+// --- Obstáculos ---
+const obstacles = [
+    {x:300, y:200, w:100, h:20},
+    {x:600, y:400, w:150, h:30}
+];
+
+// --- Câmera ---
+const camera = { x:0, y:0 };
+
+// --- Colisão ---
+function isColliding(a,b){ return a.x<a.x+b.w && a.x+a.w>b.x && a.y<a.y+b.h && a.y+a.h>b.y; }
+
+// --- Atualizar ---
+function update(){
+    let nx = player.x;
+    let ny = player.y;
+    if(keys['ArrowUp']) ny -= player.speed;
+    if(keys['ArrowDown']) ny += player.speed;
+    if(keys['ArrowLeft']) nx -= player.speed;
+    if(keys['ArrowRight']) nx += player.speed;
+
+    const tempPlayer = {...player, x:nx, y:ny};
+    let canMove = true;
+    for(const obs of obstacles) if(isColliding(tempPlayer, obs)) canMove=false;
+    if(canMove){ player.x=nx; player.y=ny; }
+
+    // Simula XP subindo
+    player.xp += 0.01;
+    if(player.xp >= player.xpToNext){
+        player.level += 1;
+        player.xp = 0;
+        levelUpSound.play(); // toca som de level up
+    }
+
+    // Atualiza HUD
+    document.getElementById('info').innerText = `Level: ${player.level} | XP: ${player.xp.toFixed(2)}/${player.xpToNext}`;
+
+    // Câmera segue jogador
+    camera.x = player.x - canvas.width/2 + player.w/2;
+    camera.y = player.y - canvas.height/2 + player.h/2;
+}
+
+// --- Desenhar ---
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Obstáculos
+    ctx.fillStyle='brown';
+    for(const o of obstacles) ctx.fillRect(o.x-camera.x,o.y-camera.y,o.w,o.h);
+
+    // Jogador
+    ctx.fillStyle=player.color;
+    ctx.fillRect(player.x-camera.x,player.y-camera.y,player.w,player.h);
+}
+
+// --- Loop ---
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
